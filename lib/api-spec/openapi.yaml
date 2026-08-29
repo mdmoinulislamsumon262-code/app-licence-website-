@@ -1,0 +1,471 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: device
+    description: Android device handshake operations
+  - name: admin
+    description: Admin authentication and device management
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /device/handshake:
+    post:
+      operationId: deviceHandshake
+      tags: [device]
+      summary: Register or check an Android device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeviceHandshakeInput"
+      responses:
+        "200":
+          description: Device access decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceHandshakeResult"
+        "400":
+          description: Invalid device request
+  /admin/auth/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Sign in to the admin dashboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Signed-in admin session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminLoginResult"
+        "401":
+          description: Invalid credentials
+  /device/validate:
+    post:
+      operationId: validateDeviceLicense
+      tags: [device]
+      summary: Validate a previously issued app license
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LicenseValidationInput"
+      responses:
+        "200":
+          description: Current license decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceHandshakeResult"
+        "400":
+          description: Invalid license request
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get device access totals
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStatsResponse"
+        "401":
+          description: Unauthorized
+  /admin/devices:
+    get:
+      operationId: listAdminDevices
+      tags: [admin]
+      summary: List registered devices
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ALL, PENDING, APPROVED, REJECTED, BANNED, EXPIRED]
+            default: ALL
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Registered devices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DevicesResponse"
+        "401":
+          description: Unauthorized
+  /admin/devices/{id}/approve:
+    post:
+      operationId: approveAdminDevice
+      tags: [admin]
+      summary: Approve a device for a duration
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApproveDeviceInput"
+      responses:
+        "200":
+          description: Device approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResponse"
+        "401":
+          description: Unauthorized
+  /admin/devices/{id}/reject:
+    post:
+      operationId: rejectAdminDevice
+      tags: [admin]
+      summary: Block a device
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Device blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResponse"
+        "401":
+          description: Unauthorized
+  /admin/devices/{id}:
+    delete:
+      operationId: deleteAdminDevice
+      tags: [admin]
+      summary: Remove a device record
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Device removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionResponse"
+        "401":
+          description: Unauthorized
+  /admin/logs:
+    get:
+      operationId: listAdminLogs
+      tags: [admin]
+      summary: List recent device activity
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogsResponse"
+        "401":
+          description: Unauthorized
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    AdminLoginInput:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+      required: [username, password]
+    AdminLoginResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+            username:
+              type: string
+          required: [token, username]
+      required: [success, data]
+    AdminStats:
+      type: object
+      properties:
+        total:
+            type: number
+            multipleOf: 1
+        pending:
+          type: number
+          multipleOf: 1
+        approved:
+          type: number
+          multipleOf: 1
+        rejected:
+          type: number
+          multipleOf: 1
+      required: [total, pending, approved, rejected]
+    AdminStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: "#/components/schemas/AdminStats"
+      required: [success, data]
+    DeviceHandshakeInput:
+      type: object
+      properties:
+        device_id:
+          type: string
+          minLength: 1
+        app_id:
+          type: string
+          minLength: 1
+          description: Stable identifier for the application using DeviceGuard
+        app_name:
+          type: string
+        package_name:
+          type: string
+        device_name:
+          type: string
+        android_version:
+          type: string
+        manufacturer:
+          type: string
+        model:
+          type: string
+        sdk_version:
+          type: string
+        app_version:
+          type: string
+        requested_permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+      required: [device_id, app_id]
+    LicenseValidationInput:
+      type: object
+      properties:
+        license_token:
+          type: string
+          minLength: 1
+      required: [license_token]
+    DeviceHandshakeResult:
+      type: object
+      properties:
+        access:
+          type: boolean
+        status:
+          type: string
+          enum: [approved, pending, rejected, expired, error]
+        message:
+          type: string
+        device_id:
+          type: string
+        expires_at:
+          type: ["string", "null"]
+        license_token:
+          type: ["string", "null"]
+        granted_permissions:
+          type: array
+          items:
+            type: string
+        missing_permissions:
+          type: array
+          items:
+            type: string
+      required: [access, status, message]
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+        device_id:
+          type: string
+        device_id_hash:
+          type: string
+        app_id:
+          type: string
+        app_name:
+          type: ["string", "null"]
+        package_name:
+          type: ["string", "null"]
+        device_name:
+          type: ["string", "null"]
+        manufacturer:
+          type: ["string", "null"]
+        model:
+          type: ["string", "null"]
+        android_version:
+          type: ["string", "null"]
+        sdk_version:
+          type: ["string", "null"]
+        app_version:
+          type: ["string", "null"]
+        ip_address:
+          type: ["string", "null"]
+        requested_permissions:
+          type: array
+          items:
+            type: string
+        granted_permissions:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, BANNED, EXPIRED]
+        expires_at:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        registered_at:
+          type: string
+        last_active_at:
+          type: string
+      required:
+        - id
+        - device_id
+        - device_id_hash
+        - app_id
+        - status
+        - registered_at
+        - last_active_at
+    DevicesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            devices:
+              type: array
+              items:
+                $ref: "#/components/schemas/Device"
+          required: [devices]
+      required: [success, data]
+    ApproveDeviceInput:
+      type: object
+      properties:
+        duration_days:
+          type: number
+          multipleOf: 1
+          minimum: 0
+        granted_permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+      required: [duration_days, granted_permissions]
+    ActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success, message]
+    ActivityLog:
+      type: object
+      properties:
+        id:
+          type: string
+        device_id:
+          type: ["string", "null"]
+        device_name:
+          type: ["string", "null"]
+        action:
+          type: string
+        ip_address:
+          type: ["string", "null"]
+        created_at:
+          type: string
+      required: [id, action, created_at]
+    LogsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            logs:
+              type: array
+              items:
+                $ref: "#/components/schemas/ActivityLog"
+          required: [logs]
+      required: [success, data]
+

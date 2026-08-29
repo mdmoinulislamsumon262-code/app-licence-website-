@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "DeviceGuard Access Manager"
+description = "A secure Android device access management dashboard for reviewing device handshakes, approving or blocking access, managing expiry windows, and inspecting activity logs."
+version = "1.0.0"
+id = "artifacts/deviceguard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18870
+
+[services.development]
+run = "pnpm --filter @workspace/deviceguard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/deviceguard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/deviceguard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18870"
+BASE_PATH = "/"
